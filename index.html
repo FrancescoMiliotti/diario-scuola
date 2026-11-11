@@ -1,0 +1,375 @@
+<title>Diario scolastico</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: intestazione, riepilogo, striscia della settimana a 7 giorni, elenco compiti per urgenza, materiali. */
+:root {
+  --bg: #f3f6fa;
+  --surface: #ffffff;
+  --surface-2: #e9eef5;
+  --ink: #15202e;
+  --ink-2: #566377;
+  --line: #d5dde8;
+  --accent: #2c59e8;
+  --accent-ink: #ffffff;
+  --accent-soft: #e3eafd;
+  --ok: #17794f;
+  --ok-soft: #dcf3e8;
+  --warn: #9a6200;
+  --warn-soft: #fbefd2;
+  --bad: #b3261e;
+  --bad-soft: #fbe1de;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-head: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --chip-l: 40%;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1622; --surface: #172131; --surface-2: #1f2b3f; --ink: #e8eef8; --ink-2: #9aa9c0;
+    --line: #2a384f; --accent: #7a9bff; --accent-ink: #0c1424; --accent-soft: #22325e;
+    --ok: #6fd3a3; --ok-soft: #173a2c; --warn: #f0c36a; --warn-soft: #3d3214; --bad: #ff8f86; --bad-soft: #4a2220;
+    --chip-l: 68%; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1622; --surface: #172131; --surface-2: #1f2b3f; --ink: #e8eef8; --ink-2: #9aa9c0;
+  --line: #2a384f; --accent: #7a9bff; --accent-ink: #0c1424; --accent-soft: #22325e;
+  --ok: #6fd3a3; --ok-soft: #173a2c; --warn: #f0c36a; --warn-soft: #3d3214; --bad: #ff8f86; --bad-soft: #4a2220;
+  --chip-l: 68%; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+  padding-block: 20px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+h1, h2 { font-family: var(--font-head); margin: 0; text-wrap: balance; }
+h1 { font-size: 30px; line-height: 1.1; letter-spacing: -0.01em; }
+h2 { font-size: 18px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.top { display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: flex-end; justify-content: space-between; }
+.top p { margin: 4px 0 0; color: var(--ink-2); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { border: 1px solid var(--line); background: var(--surface); padding: 9px 14px; border-radius: 8px; font-weight: 500; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.small { padding: 5px 10px; font-size: 13px; }
+.notice { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; }
+.notice strong { font-family: var(--font-head); }
+.notice p { margin: 0; color: var(--ink-2); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 2px; }
+.stat b { font-family: var(--font-head); font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--ink-2); font-size: 13px; }
+.stat.bad b { color: var(--bad); }
+.stat.accent b { color: var(--accent); }
+section > header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+section > header small { color: var(--ink-2); }
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.day { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px; min-height: 120px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.day.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.day.past { opacity: .65; }
+.day h3 { margin: 0; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); display: flex; justify-content: space-between; }
+.day h3 b { color: var(--ink); font-family: var(--font-head); font-size: 15px; letter-spacing: 0; }
+.slot { font-size: 13px; padding: 6px 8px; border-radius: 6px; background: var(--surface-2); display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.slot.ghost { background: transparent; border: 1px dashed var(--line); color: var(--ink-2); }
+.slot.done { text-decoration: line-through; color: var(--ink-2); }
+.slot .sub { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.empty { color: var(--ink-2); font-size: 13px; }
+.group { margin-bottom: 18px; }
+.group h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); display: flex; gap: 8px; align-items: center; }
+.group h3 .count { background: var(--surface-2); border-radius: 999px; padding: 0 8px; font-size: 12px; }
+.group.bad h3 { color: var(--bad); }
+.list { display: grid; gap: 8px; }
+.task { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+.task.done .t { text-decoration: line-through; color: var(--ink-2); }
+.check { width: 24px; height: 24px; border-radius: 6px; border: 2px solid var(--ink-2); background: transparent; display: grid; place-items: center; padding: 0; margin-top: 1px; }
+.check[aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: #fff; }
+.t { font-weight: 600; overflow-wrap: anywhere; }
+.d { color: var(--ink-2); font-size: 13.5px; margin-top: 2px; overflow-wrap: anywhere; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-top: 6px; font-size: 12.5px; color: var(--ink-2); }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--surface-2); }
+.chip i { width: 8px; height: 8px; border-radius: 50%; background: hsl(var(--h) 62% var(--chip-l)); }
+.badge { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 6px; white-space: nowrap; background: var(--surface-2); }
+.badge.bad { background: var(--bad-soft); color: var(--bad); }
+.badge.warn { background: var(--warn-soft); color: var(--warn); }
+.badge.ok { background: var(--ok-soft); color: var(--ok); }
+.badge.soft { background: var(--accent-soft); color: var(--accent); }
+.rm { background: none; border: 0; color: var(--ink-2); font-size: 12px; text-decoration: underline; padding: 0; }
+details.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 0; }
+details.panel summary { padding: 12px 16px; cursor: pointer; font-family: var(--font-head); font-weight: 700; }
+details.panel .body { padding: 0 16px 16px; display: grid; gap: 12px; }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+label { display: grid; gap: 4px; font-size: 13px; color: var(--ink-2); font-weight: 500; }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; min-width: 0; }
+textarea { min-height: 120px; resize: vertical; }
+.msg { font-size: 13.5px; color: var(--ok); }
+.cols2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px; }
+@media (max-width: 860px) {
+  .week { grid-template-columns: 1fr; }
+  .day { min-height: 0; flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .day h3 { flex: 0 0 100%; }
+}
+@media (prefers-reduced-motion: no-preference) { .btn, .check { transition: background .15s, filter .15s; } }
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>Diario scolastico</h1>
+      <p id="todayLabel"></p>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="btnUpdate" type="button">Aggiorna dalla posta</button>
+      <button class="btn" id="btnAdd" type="button">Aggiungi compito</button>
+    </div>
+  </div>
+
+  <div class="notice" id="updateNote" hidden>
+    <strong>Collegamento alla posta non ancora attivo</strong>
+    <p>Per ora le novità si aggiungono incollando il testo di una notifica in «Importa da email» qui sotto. Il pulsante Aggiorna leggerà la posta direttamente quando il collegamento con Google sarà configurato.</p>
+    <div><button class="btn small" id="btnGoImport" type="button">Vai a Importa da email</button></div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <section>
+    <header><h2>Settimana</h2><small id="weekLabel"></small></header>
+    <div class="week" id="week"></div>
+  </section>
+
+  <section>
+    <header><h2>Da fare</h2><small>In ordine di scadenza</small></header>
+    <div id="todo"></div>
+  </section>
+
+  <section>
+    <header><h2>Materiali e avvisi dei professori</h2><small>Da consultare, senza consegna</small></header>
+    <div class="cols2" id="materials"></div>
+  </section>
+
+  <details class="panel" id="addBox">
+    <summary>Aggiungi un compito a mano</summary>
+    <form class="body" id="addForm">
+      <div class="row">
+        <label>Materia<input id="fSubject" required placeholder="Matematica"></label>
+        <label>Scadenza<input id="fDue" type="date"></label>
+      </div>
+      <label>Cosa devo fare<input id="fTitle" required placeholder="Esercizi pag. 80 n. 1-6"></label>
+      <label>Note (facoltativo)<input id="fDetail" placeholder="Pagine, file o dettagli"></label>
+      <div><button class="btn primary" type="submit">Salva compito</button></div>
+    </form>
+  </details>
+
+  <details class="panel" id="importBox">
+    <summary>Importa da email</summary>
+    <div class="body">
+      <label>Incolla il testo di una o più notifiche di Classroom (separa con una riga di trattini ---)
+        <textarea id="importText" placeholder='Fisica 1C  Nuovo compito  Compiti per casa  Esecuzione numero 64,65,68  Consegna: 15 nov'></textarea>
+      </label>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+        <button class="btn primary" id="btnImport" type="button">Importa</button>
+        <span class="msg" id="importMsg" role="status"></span>
+      </div>
+    </div>
+  </details>
+</div>
+
+<script>
+(function () {
+  var KEY = "diario-gioele-v1";
+  var MESI = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
+  var GIORNI = ["lun","mar","mer","gio","ven","sab","dom"];
+
+  function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function iso(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function parseISO(s) { var p = s.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+  function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+  function diffDays(a, b) { return Math.round((startOfDay(a) - startOfDay(b)) / 86400000); }
+  var today = startOfDay(new Date());
+
+  var SEED = [];
+
+  var state = { items: SEED.map(function (x) { return Object.assign({ done: false }, x); }), updated: null };
+  try {
+    var raw = localStorage.getItem(KEY);
+    if (raw) { var p = JSON.parse(raw); if (p && Array.isArray(p.items)) state = p; }
+  } catch (e) {}
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+  function hue(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
+  function chip(subject) { var c = el("span", "chip"); var i = el("i"); i.style.setProperty("--h", hue(subject)); c.appendChild(i); c.appendChild(document.createTextNode(subject)); return c; }
+  function fmt(d) { return GIORNI[(d.getDay() + 6) % 7] + " " + d.getDate() + " " + MESI[d.getMonth()]; }
+
+  function dueBadge(t) {
+    if (!t.due) return el("span", "badge", "Senza scadenza");
+    var n = diffDays(parseISO(t.due), today);
+    var txt, cls = "";
+    if (t.done) { return el("span", "badge ok", "Fatto"); }
+    if (n < 0) { txt = "Scaduto da " + (-n) + (n === -1 ? " giorno" : " giorni"); cls = "bad"; }
+    else if (n === 0) { txt = "Oggi"; cls = "bad"; }
+    else if (n === 1) { txt = "Domani"; cls = "warn"; }
+    else if (n <= 7) { txt = "Tra " + n + " giorni"; cls = "soft"; }
+    else { txt = fmt(parseISO(t.due)); }
+    return el("span", "badge " + cls, txt);
+  }
+
+  function toggle(id) {
+    state.items.forEach(function (x) { if (x.id === id) x.done = !x.done; });
+    save(); render();
+  }
+  function remove(id) { state.items = state.items.filter(function (x) { return x.id !== id; }); save(); render(); }
+
+  function taskRow(t) {
+    var r = el("div", "task" + (t.done ? " done" : ""));
+    var b = el("button", "check"); b.type = "button"; b.setAttribute("aria-pressed", t.done ? "true" : "false");
+    b.setAttribute("aria-label", (t.done ? "Segna da fare: " : "Segna come fatto: ") + t.title);
+    b.textContent = t.done ? "✓" : "";
+    b.addEventListener("click", function () { toggle(t.id); });
+    var mid = el("div");
+    mid.appendChild(el("div", "t", t.title));
+    if (t.detail) mid.appendChild(el("div", "d", t.detail));
+    var meta = el("div", "meta"); meta.appendChild(chip(t.subject));
+    if (t.teacher) meta.appendChild(el("span", "", t.teacher));
+    if (t.manual) { var rm = el("button", "rm", "Rimuovi"); rm.type = "button"; rm.addEventListener("click", function () { remove(t.id); }); meta.appendChild(rm); }
+    mid.appendChild(meta);
+    r.appendChild(b); r.appendChild(mid); r.appendChild(dueBadge(t));
+    return r;
+  }
+
+  function render() {
+    $("todayLabel").textContent = today.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    var tasks = state.items.filter(function (x) { return x.kind === "compito"; });
+    var mats = state.items.filter(function (x) { return x.kind !== "compito"; });
+    var open = tasks.filter(function (t) { return !t.done; });
+    var monday = addDays(today, -((today.getDay() + 6) % 7));
+    var sunday = addDays(monday, 6);
+
+    var overdue = open.filter(function (t) { return t.due && parseISO(t.due) < today; });
+    var thisWeek = open.filter(function (t) { if (!t.due) return false; var d = parseISO(t.due); return d >= today && d <= sunday; });
+    var later = open.filter(function (t) { return t.due && parseISO(t.due) > sunday; });
+    var nodue = open.filter(function (t) { return !t.due; });
+    var done = tasks.filter(function (t) { return t.done; });
+    function bydue(a, b) { return (a.due || "9").localeCompare(b.due || "9"); }
+
+    // Riepilogo
+    var st = $("stats"); st.textContent = "";
+    function stat(n, label, cls) { var s = el("div", "stat " + (cls || "")); s.appendChild(el("b", "", String(n))); s.appendChild(el("span", "", label)); st.appendChild(s); }
+    stat(thisWeek.length, "da consegnare questa settimana", "accent");
+    stat(overdue.length, "scaduti da verificare", overdue.length ? "bad" : "");
+    stat(nodue.length, "senza scadenza indicata");
+    stat(done.length, "completati");
+
+    // Settimana
+    $("weekLabel").textContent = fmt(monday) + " - " + fmt(sunday);
+    var wk = $("week"); wk.textContent = "";
+    for (var i = 0; i < 7; i++) {
+      var d = addDays(monday, i), key = iso(d);
+      var cell = el("div", "day" + (diffDays(d, today) === 0 ? " today" : "") + (d < today ? " past" : ""));
+      var h = el("h3"); h.appendChild(el("span", "", GIORNI[i])); h.appendChild(el("b", "", String(d.getDate()))); cell.appendChild(h);
+      var any = false;
+      tasks.filter(function (t) { return t.due === key; }).forEach(function (t) {
+        any = true; var s = el("div", "slot" + (t.done ? " done" : ""));
+        s.appendChild(el("span", "sub", t.subject)); s.appendChild(el("span", "", t.title)); cell.appendChild(s);
+      });
+      if (d >= today) {
+        var nextKey = iso(addDays(d, 1));
+        open.filter(function (t) { return t.due === nextKey; }).forEach(function (t) {
+          any = true; var s = el("div", "slot ghost");
+          s.appendChild(el("span", "sub", "Inizia: " + t.subject)); s.appendChild(el("span", "", t.title)); cell.appendChild(s);
+        });
+      }
+      if (!any) cell.appendChild(el("span", "empty", d < today ? "" : "Libero"));
+      wk.appendChild(cell);
+    }
+
+    // Elenco compiti
+    var td = $("todo"); td.textContent = "";
+    function group(title, arr, cls, closed) {
+      if (!arr.length) return;
+      var g = el("div", "group " + (cls || ""));
+      var h = el("h3", "", title); h.appendChild(el("span", "count", String(arr.length))); g.appendChild(h);
+      var l = el("div", "list");
+      arr.slice().sort(bydue).forEach(function (t) { l.appendChild(taskRow(t)); });
+      g.appendChild(l); td.appendChild(g);
+    }
+    group("Scaduti, da verificare", overdue, "bad");
+    group("Questa settimana", thisWeek);
+    group("Più avanti", later);
+    group("Senza scadenza indicata", nodue);
+    group("Completati", done);
+    if (!tasks.length) td.appendChild(el("p", "empty", "Nessun compito per ora. Premi Aggiorna dalla posta, importa una notifica o aggiungi un compito a mano."));
+
+    // Materiali
+    var mt = $("materials"); mt.textContent = "";
+    mats.slice().sort(function (a, b) { return (b.posted || "").localeCompare(a.posted || ""); }).forEach(function (m) {
+      var r = el("div", "task" + (m.done ? " done" : ""));
+      var b = el("button", "check"); b.type = "button"; b.setAttribute("aria-pressed", m.done ? "true" : "false");
+      b.setAttribute("aria-label", "Segna come visto: " + m.title); b.textContent = m.done ? "✓" : "";
+      b.addEventListener("click", function () { toggle(m.id); });
+      var mid = el("div"); mid.appendChild(el("div", "t", m.title));
+      var meta = el("div", "meta"); meta.appendChild(chip(m.subject));
+      meta.appendChild(el("span", "", (m.kind === "annuncio" ? "Avviso" : "Materiale") + (m.posted ? " · " + fmt(parseISO(m.posted)) : "")));
+      mid.appendChild(meta);
+      r.appendChild(b); r.appendChild(mid); r.appendChild(el("span", "badge", m.done ? "Visto" : "Da vedere"));
+      mt.appendChild(r);
+    });
+  }
+
+  // ---- Importazione da testo di notifica Classroom ----
+  function parseChunk(text) {
+    var t = text.replace(/\s+/g, " ").trim();
+    if (!t) return null;
+    var kind = /nuovo compito|in consegna/i.test(t) ? "compito" : /nuovo annuncio/i.test(t) ? "annuncio" : /nuovo materiale/i.test(t) ? "materiale" : (/consegna:/i.test(t) ? "compito" : "materiale");
+    var lab = t.match(/(NUOVO COMPITO|NUOVO MATERIALE|NUOVO ANNUNCIO|IN CONSEGNA DOMANI)/i);
+    var subject = "Altro", body = t;
+    if (lab) {
+      var before = t.slice(0, lab.index).replace(/^.*Impostazioni di notifica\s*/i, "");
+      subject = before.replace(/\(a\.?\s?s\.?[^)]*\)/ig, "").replace(/\b\d\s*\^?\s*[A-Z]\b/g, "").replace(/\b\d{2}\/\d{2}\b/g, "").replace(/a\.?s\.? ?\d{4}\/?\d{0,4}/ig, "").replace(/\s+/g, " ").trim() || "Altro";
+      subject = subject.charAt(0).toUpperCase() + subject.slice(1).toLowerCase();
+      body = t.slice(lab.index + lab[0].length);
+    }
+    var teacher = (body.match(/Pubblicato da (.+?) il giorno/i) || [])[1] || "";
+    var dueM = body.match(/Consegna:\s*(\d{1,2})\s+([a-zà]{3})/i);
+    body = body.split(/Consegna:|Visualizza (?:dettagli|compito)|Pubblicato da|Google LLC/i)[0].trim();
+    var due = null;
+    if (dueM) {
+      var m = MESI.indexOf(dueM[2].toLowerCase());
+      if (m >= 0) {
+        var y = today.getFullYear(), c = new Date(y, m, +dueM[1]);
+        if (diffDays(c, today) < -60) c = new Date(y + 1, m, +dueM[1]);
+        due = iso(c);
+      }
+    }
+    if (!body) body = "(senza titolo)";
+    var title = body.length > 90 ? body.slice(0, body.lastIndexOf(" ", 90)) + "…" : body;
+    return { id: "i" + Date.now() + Math.random().toString(36).slice(2, 6), kind: kind, subject: subject, title: title, detail: body.length > 90 ? body : "", due: due, teacher: teacher, posted: iso(today), done: false };
+  }
+  $("btnImport").addEventListener("click", function () {
+    var chunks = $("importText").value.split(/\n\s*-{3,}\s*\n/);
+    var added = 0, dup = 0;
+    chunks.forEach(function (c) {
+      var it = parseChunk(c); if (!it) return;
+      var exists = state.items.some(function (x) { return x.subject === it.subject && x.title === it.title && (x.due || "") === (it.due || ""); });
+      if (exists) { dup++; } else { state.items.push(it); added++; }
+    });
+    state.updated = new Date().toISOString(); save(); render();
+    $("importMsg").textContent = added + " aggiunti" + (dup ? ", " + dup + " già presenti" : "") + ".";
+    if (added) $("importText").value = "";
+  });
+
+  // ---- Aggiunta manuale ----
+  $("addForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    state.items.push({ id: "u" + Date.now(), kind: "compito", subject: $("fSubject").value.trim(), title: $("fTitle").value.trim(), detail: $("fDetail").value.trim(), due: $("fDue").value || null, teacher: "", posted: iso(today), done: false, manual: true });
+    save(); render(); e.target.reset(); $("addBox").open = false;
+  });
+  $("btnAdd").addEventListener("click", function () { var b = $("addBox"); b.open = true; b.scrollIntoView({ behavior: "smooth", block: "center" }); $("fSubject").focus(); });
+  $("btnUpdate").addEventListener("click", function () { $("updateNote").hidden = !$("updateNote").hidden; });
+  $("btnGoImport").addEventListener("click", function () { var b = $("importBox"); b.open = true; b.scrollIntoView({ behavior: "smooth", block: "center" }); $("importText").focus(); });
+
+  render();
+})();
+</script>
