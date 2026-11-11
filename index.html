@@ -131,6 +131,8 @@ textarea { min-height: 120px; resize: vertical; }
     <div><button class="btn small" id="btnGoImport" type="button">Vai a Importa da email</button></div>
   </div>
 
+  <p class="msg" id="syncMsg" role="status"></p>
+
   <div class="stats" id="stats"></div>
 
   <section>
@@ -319,7 +321,7 @@ textarea { min-height: 120px; resize: vertical; }
   }
 
   // ---- Importazione da testo di notifica Classroom ----
-  function parseChunk(text) {
+  function parseChunk(text, postedIso) {
     var t = text.replace(/\s+/g, " ").trim();
     if (!t) return null;
     var kind = /nuovo compito|in consegna/i.test(t) ? "compito" : /nuovo annuncio/i.test(t) ? "annuncio" : /nuovo materiale/i.test(t) ? "materiale" : (/consegna:/i.test(t) ? "compito" : "materiale");
@@ -345,7 +347,7 @@ textarea { min-height: 120px; resize: vertical; }
     }
     if (!body) body = "(senza titolo)";
     var title = body.length > 90 ? body.slice(0, body.lastIndexOf(" ", 90)) + "…" : body;
-    return { id: "i" + Date.now() + Math.random().toString(36).slice(2, 6), kind: kind, subject: subject, title: title, detail: body.length > 90 ? body : "", due: due, teacher: teacher, posted: iso(today), done: false };
+    return { id: "i" + Date.now() + Math.random().toString(36).slice(2, 6), kind: kind, subject: subject, title: title, detail: body.length > 90 ? body : "", due: due, teacher: teacher, posted: postedIso || iso(today), done: false };
   }
   $("btnImport").addEventListener("click", function () {
     var chunks = $("importText").value.split(/\n\s*-{3,}\s*\n/);
@@ -367,7 +369,63 @@ textarea { min-height: 120px; resize: vertical; }
     save(); render(); e.target.reset(); $("addBox").open = false;
   });
   $("btnAdd").addEventListener("click", function () { var b = $("addBox"); b.open = true; b.scrollIntoView({ behavior: "smooth", block: "center" }); $("fSubject").focus(); });
-  $("btnUpdate").addEventListener("click", function () { $("updateNote").hidden = !$("updateNote").hidden; });
+  // ---- Lettura della posta con l'accesso ufficiale di Google (sola lettura) ----
+  var CLIENT_ID = "95947927384-9cfm0sqi8npcpsmsabmode59qkcj8h05.apps.googleusercontent.com"; // ID client OAuth creato nella console Google Cloud
+  function clientId() { try { return localStorage.getItem("diario-clientid") || CLIENT_ID; } catch (e) { return CLIENT_ID; } }
+  function say(t, bad) { var m = $("syncMsg"); m.textContent = t; m.style.color = bad ? "var(--bad)" : "var(--ok)"; }
+  function loadGsi(cb) {
+    if (window.google && google.accounts && google.accounts.oauth2) return cb();
+    var s = document.createElement("script"); s.src = "https://accounts.google.com/gsi/client";
+    s.onload = cb; s.onerror = function () { say("Non riesco a contattare Google. Controlla la connessione.", true); };
+    document.head.appendChild(s);
+  }
+  function b64(s) { s = s.replace(/-/g, "+").replace(/_/g, "/"); try { return decodeURIComponent(escape(atob(s))); } catch (e) { try { return atob(s); } catch (e2) { return ""; } } }
+  function bodyText(part) {
+    if (!part) return "";
+    if (part.mimeType === "text/plain" && part.body && part.body.data) return b64(part.body.data);
+    var out = "";
+    (part.parts || []).forEach(function (p) { out += " " + bodyText(p); });
+    if (!out.trim() && part.mimeType === "text/html" && part.body && part.body.data) out = b64(part.body.data).replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ");
+    return out;
+  }
+  function sync(token) {
+    var H = { headers: { Authorization: "Bearer " + token } };
+    say("Leggo la posta…");
+    var q = "from:no-reply@classroom.google.com newer_than:21d";
+    fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=60&q=" + encodeURIComponent(q), H)
+      .then(function (r) { if (!r.ok) throw new Error("Gmail " + r.status); return r.json(); })
+      .then(function (list) {
+        var ids = (list.messages || []).map(function (m) { return m.id; });
+        return Promise.all(ids.map(function (id) { return fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/" + id + "?format=full", H).then(function (r) { return r.json(); }); }));
+      })
+      .then(function (msgs) {
+        var added = 0;
+        msgs.forEach(function (m) {
+          var txt = bodyText(m.payload);
+          var it = parseChunk(txt, m.internalDate ? iso(new Date(+m.internalDate)) : null);
+          if (!it) return;
+          var ex = state.items.filter(function (x) { return x.subject === it.subject && x.title === it.title; })[0];
+          if (ex) { if (!ex.due && it.due) ex.due = it.due; } else { state.items.push(it); added++; }
+        });
+        state.updated = new Date().toISOString(); save(); render();
+        say(added ? added + " novità aggiunte dalla posta." : "Nessuna novità.");
+        try { google.accounts.oauth2.revoke(token, function () {}); } catch (e) {}
+      })
+      .catch(function (e) { say("Lettura non riuscita (" + e.message + "). Riprova o importa a mano.", true); });
+  }
+  $("btnUpdate").addEventListener("click", function () {
+    var cid = clientId();
+    if (!cid) { $("updateNote").hidden = false; return; }
+    $("updateNote").hidden = true;
+    loadGsi(function () {
+      var tc = google.accounts.oauth2.initTokenClient({
+        client_id: cid, scope: "https://www.googleapis.com/auth/gmail.readonly",
+        callback: function (resp) { if (resp.error) { say("Accesso non riuscito: " + resp.error, true); return; } sync(resp.access_token); },
+        error_callback: function (e) { say("Accesso annullato o bloccato (" + (e && e.type || "errore") + ").", true); }
+      });
+      tc.requestAccessToken({ prompt: "select_account" });
+    });
+  });
   $("btnGoImport").addEventListener("click", function () { var b = $("importBox"); b.open = true; b.scrollIntoView({ behavior: "smooth", block: "center" }); $("importText").focus(); });
 
   render();
