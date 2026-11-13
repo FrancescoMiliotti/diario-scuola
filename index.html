@@ -133,6 +133,13 @@ textarea { min-height: 120px; resize: vertical; }
 
   <p class="msg" id="syncMsg" role="status"></p>
 
+  <div class="notice" id="updBanner" hidden>
+    <strong>Nuovi aggiornamenti</strong>
+    <p id="updInfo"></p>
+    <div id="passRow" hidden><label>Frase segreta (si inserisce una sola volta)<input id="passIn" type="password" autocomplete="off"></label></div>
+    <div><button class="btn primary" id="btnDownload" type="button">Scarica</button></div>
+  </div>
+
   <div class="stats" id="stats"></div>
 
   <section>
@@ -427,6 +434,49 @@ textarea { min-height: 120px; resize: vertical; }
     });
   });
   $("btnGoImport").addEventListener("click", function () { var b = $("importBox"); b.open = true; b.scrollIntoView({ behavior: "smooth", block: "center" }); $("importText").focus(); });
+
+  // ---- Aggiornamenti cifrati pubblicati dal genitore ----
+  var pendingUpd = null;
+  function getPass() { try { return localStorage.getItem("diario-pass") || ""; } catch (e) { return ""; } }
+  function normPass(s) { return String(s).normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase(); }
+  function b64d(s) { var b = atob(s), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  function decryptUpd(j, pass) {
+    var enc = new TextEncoder();
+    return crypto.subtle.importKey("raw", enc.encode(normPass(pass)), "PBKDF2", false, ["deriveKey"])
+      .then(function (km) { return crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64d(j.salt), iterations: 200000, hash: "SHA-256" }, km, { name: "AES-GCM", length: 256 }, false, ["decrypt"]); })
+      .then(function (key) { return crypto.subtle.decrypt({ name: "AES-GCM", iv: b64d(j.iv) }, key, b64d(j.ct)); })
+      .then(function (pt) { return JSON.parse(new TextDecoder().decode(pt)); });
+  }
+  function checkUpdates() {
+    fetch("aggiornamenti.enc.json?t=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.version) return;
+        if (state.updVersion && state.updVersion >= j.version) return;
+        pendingUpd = j;
+        $("updInfo").textContent = "Ci sono aggiornamenti dai professori del " + new Date(j.version).toLocaleDateString("it-IT", { day: "numeric", month: "long" }) + ".";
+        $("passRow").hidden = !!getPass();
+        $("updBanner").hidden = false;
+      }).catch(function () {});
+  }
+  $("btnDownload").addEventListener("click", function () {
+    if (!pendingUpd) return;
+    var pass = getPass() || $("passIn").value;
+    if (!pass) { say("Scrivi la frase segreta.", true); return; }
+    decryptUpd(pendingUpd, pass).then(function (data) {
+      var added = 0;
+      (data.items || []).forEach(function (it) {
+        var ex = state.items.filter(function (x) { return x.subject === it.subject && x.title === it.title; })[0];
+        if (ex) { if (!ex.due && it.due) ex.due = it.due; }
+        else { it.id = "e" + Date.now() + Math.random().toString(36).slice(2, 6); it.done = false; state.items.push(it); added++; }
+      });
+      state.updVersion = pendingUpd.version;
+      try { localStorage.setItem("diario-pass", pass); } catch (e) {}
+      save(); render(); $("updBanner").hidden = true; pendingUpd = null;
+      say(added ? added + " novità scaricate." : "Già tutto aggiornato.");
+    }).catch(function () { say("Frase segreta errata o file non leggibile.", true); $("passRow").hidden = false; });
+  });
+  checkUpdates();
 
   render();
 })();
