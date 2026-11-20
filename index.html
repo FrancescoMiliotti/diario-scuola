@@ -487,6 +487,8 @@ textarea { min-height: 120px; resize: vertical; }
     }).catch(function () { say("Frase segreta errata o file non leggibile.", true); $("passRow").hidden = false; });
   });
   checkUpdates();
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) checkUpdates(); });
+  window.addEventListener("focus", checkUpdates);
   if ("serviceWorker" in navigator) { window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); }); }
 
   render();
